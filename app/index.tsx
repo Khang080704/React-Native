@@ -13,12 +13,14 @@ import { useState } from "react";
 type ShoppingListItemProps = {
     name: string;
     id: string;
+    completedAtTimeStamp?: number;
+    lastUpdatedTimeStamp: number;
 };
 
 const initialItems: ShoppingListItemProps[] = [
-    { name: "Coffee", id: "1" },
-    { name: "Tea", id: "2" },
-    { name: "Orange Juice", id: "3" },
+    { name: "Coffee", id: "1", lastUpdatedTimeStamp: Date.now() },
+    { name: "Tea", id: "2", lastUpdatedTimeStamp: Date.now() },
+    { name: "Orange Juice", id: "3", lastUpdatedTimeStamp: Date.now() },
 ];
 
 export default function App() {
@@ -27,14 +29,63 @@ export default function App() {
 
     const handleSubmit = () => {
         if (input.trim()) {
-            setItems([{ name: input, id: Math.random().toString() }, ...items]);
+            setItems([
+                {
+                    name: input,
+                    id: Math.random().toString(),
+                    lastUpdatedTimeStamp: Date.now(),
+                },
+                ...items,
+            ]);
             setInput("");
         }
     };
 
+    const onDelete = (id: string) => {
+        setItems((items) => items.filter((item) => item.id !== id));
+    };
+
+    const handleToggle = (id: string) => {
+        const newShoppingList = items.map((item) => {
+            if (item.id === id) {
+                return {
+                    ...item,
+                    completedAtTimeStamp: item.completedAtTimeStamp
+                        ? undefined
+                        : Date.now(),
+                };
+            } else {
+                return item;
+            }
+        });
+        setItems(newShoppingList);
+    };
+
+    function orderShoppingList(shoppingList: ShoppingListItemProps[]) {
+        return shoppingList.sort((item1, item2) => {
+            if (item1.completedAtTimeStamp && item2.completedAtTimeStamp) {
+                return item2.completedAtTimeStamp - item1.completedAtTimeStamp;
+            }
+
+            if (item1.completedAtTimeStamp && !item2.completedAtTimeStamp) {
+                return 1;
+            }
+
+            if (!item1.completedAtTimeStamp && item2.completedAtTimeStamp) {
+                return -1;
+            }
+
+            if (!item1.completedAtTimeStamp && !item2.completedAtTimeStamp) {
+                return item2.lastUpdatedTimeStamp - item1.lastUpdatedTimeStamp;
+            }
+
+            return 0;
+        });
+    }
+
     return (
         <FlatList
-            data={items}
+            data={orderShoppingList(items)}
             removeClippedSubviews={false}
             stickyHeaderIndices={[0]}
             ListEmptyComponent={
@@ -52,13 +103,16 @@ export default function App() {
                     onChangeText={setInput}
                     returnKeyType="done"
                     onSubmitEditing={handleSubmit}
-                    onFocus={() => {
-                        void 0;
-                    }}
                 />
             }
             renderItem={({ item }) => (
-                <ShoppingListItem key={item.id} name={item.name} />
+                <ShoppingListItem
+                    key={item.id}
+                    name={item.name}
+                    onDelete={() => onDelete(item.id)}
+                    onToggle={() => handleToggle(item.id)}
+                    isCompleted={!!item.completedAtTimeStamp}
+                />
             )}
         />
         // <ScrollView
