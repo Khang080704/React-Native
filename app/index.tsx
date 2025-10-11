@@ -6,9 +6,12 @@ import {
     ScrollView,
     FlatList,
     Text,
+    LayoutAnimation,
 } from "react-native";
 import { theme } from "../theme";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getFromStorage, saveToStorage } from "../utils/storage";
+import * as Haptics from "expo-haptics"
 
 type ShoppingListItemProps = {
     name: string;
@@ -23,31 +26,60 @@ const initialItems: ShoppingListItemProps[] = [
     { name: "Orange Juice", id: "3", lastUpdatedTimeStamp: Date.now() },
 ];
 
+const storageKey = "shopping-list";
+
 export default function App() {
     const [input, setInput] = useState("");
     const [items, setItems] = useState<ShoppingListItemProps[]>(initialItems);
 
+    useEffect(() => {
+        (async function loadItems() {
+            const data = await getFromStorage(storageKey);
+            if (data) {
+                LayoutAnimation.configureNext(
+                    LayoutAnimation.Presets.easeInEaseOut
+                );
+                setItems(data);
+            }
+        })();
+    }, []);
+
     const handleSubmit = () => {
         if (input.trim()) {
-            setItems([
+            const newList: ShoppingListItemProps[] = [
                 {
                     name: input,
                     id: Math.random().toString(),
                     lastUpdatedTimeStamp: Date.now(),
                 },
                 ...items,
-            ]);
+            ];
+            saveToStorage(storageKey, newList);
+            LayoutAnimation.configureNext(
+                LayoutAnimation.Presets.easeInEaseOut
+            );
+            setItems(newList);
             setInput("");
         }
     };
 
     const onDelete = (id: string) => {
-        setItems((items) => items.filter((item) => item.id !== id));
+        const newShoppingList = items.filter((item) => item.id !== id);
+        saveToStorage(storageKey, newShoppingList);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        setItems(newShoppingList);
     };
 
     const handleToggle = (id: string) => {
         const newShoppingList = items.map((item) => {
             if (item.id === id) {
+                if(item.completedAtTimeStamp) {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                }
+                else {
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
+                }
                 return {
                     ...item,
                     completedAtTimeStamp: item.completedAtTimeStamp
@@ -58,6 +90,8 @@ export default function App() {
                 return item;
             }
         });
+        saveToStorage(storageKey, newShoppingList);
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setItems(newShoppingList);
     };
 
